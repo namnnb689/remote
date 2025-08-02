@@ -36,5 +36,6 @@ BEGIN
 
         -- Chuyển sang tháng tiếp theo
         batch_start := batch_end;
+        
     END LOOP;
 END $$;
