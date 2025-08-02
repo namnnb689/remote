@@ -11,7 +11,7 @@ DECLARE
     q_start DATE;
     q_end DATE;
 BEGIN
-    -- Tạo bảng cha (hash)
+    -- Tạo bảng cha
     EXECUTE $sql$
         CREATE TABLE IF NOT EXISTS vit_trans.wellness_attributes_partition (
             entity_no BIGINT NOT NULL,
@@ -41,7 +41,7 @@ BEGIN
             hash_table, hash_count, h
         );
 
-        -- Level 2: Range partitions theo quý từ 2023 đến hết 2025
+        -- Level 2: Quý cho từng năm 2023 → hết 2025
         FOR y IN start_year..end_year LOOP
             FOR q IN 1..4 LOOP
                 q_start := make_date(y, (q-1)*3+1, 1);
@@ -56,15 +56,13 @@ BEGIN
             END LOOP;
         END LOOP;
 
-        -- Partition lớn cho tất cả dữ liệu từ 2025 trở đi
-        -- Partition lớn cho tất cả dữ liệu từ 2025 trở đi
-        range_table := hash_table || '_r2025plus';
+        -- Partition từ 2026 trở đi
+        range_table := hash_table || '_r2026plus';
         EXECUTE format(
             'CREATE TABLE IF NOT EXISTS %I
-            PARTITION OF %I
-            FOR VALUES FROM (''2025-01-01'') TO (MAXVALUE)',
+             PARTITION OF %I
+             FOR VALUES FROM (''2026-01-01'') TO (MAXVALUE)',
             range_table, hash_table
         );
-
     END LOOP;
 END $$;
