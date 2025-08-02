@@ -57,11 +57,14 @@ BEGIN
         END LOOP;
 
         -- Partition lớn cho tất cả dữ liệu từ 2025 trở đi
+        -- Partition lớn cho tất cả dữ liệu từ 2025 trở đi
+        range_table := hash_table || '_r2025plus';
         EXECUTE format(
-            'CREATE TABLE IF NOT EXISTS %I_r2025plus
-             PARTITION OF %I
-             FOR VALUES FROM (''2025-01-01'') TO (MAXVALUE)',
-            hash_table, hash_table
+            'CREATE TABLE IF NOT EXISTS %I
+            PARTITION OF %I
+            FOR VALUES FROM (''2025-01-01'') TO (MAXVALUE)',
+            range_table, hash_table
         );
+
     END LOOP;
 END $$;
