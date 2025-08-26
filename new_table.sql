@@ -151,15 +151,19 @@ END$$;
 INSERT INTO entity_device_pairing (
     tenant_id,
     entity_no,
+    device_name,
     device_aggregator_id,
     effective_from_date_time
 )
 SELECT
-    (random() * 7)::int + 1 AS tenant_id,               -- tenant_id between 1–8
-    (random() * 10000)::int AS entity_no,               -- random entity_no
-    (random() * 5000)::int AS device_aggregator_id,     -- random device_aggregator_id
-    timestamp '2020-01-01' 
-        + (random() * (EXTRACT(EPOCH FROM timestamp '2028-12-31' - timestamp '2020-01-01'))) * interval '1 second'
-        AS effective_from_date_time                     -- random datetime between 2020–2028
-FROM generate_series(1, 100);                           -- exactly 100 rows
+    (random() * 7)::int + 1 AS tenant_id,               -- random 1–7
+    (random() * 10000)::int AS entity_no,               -- random 0–9999
+    'device_' || (random() * 10000)::int AS device_name, -- random device_name
+    (random() * 5000)::int AS device_aggregator_id,     -- random 0–4999
+    timestamp '2020-01-01'
+        + (random() * (EXTRACT(EPOCH FROM timestamp '2028-12-31')
+                     - EXTRACT(EPOCH FROM timestamp '2020-01-01'))) * interval '1 second'
+        AS effective_from_date_time
+FROM generate_series(1, 100);
+
 
