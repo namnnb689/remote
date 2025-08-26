@@ -148,22 +148,36 @@ END$$;
 
 
 
-INSERT INTO entity_device_pairing (
+INSERT INTO ddo.entity_device_pairing (
     tenant_id,
+    effective_from_date_time,
     entity_no,
-    device_name,
     device_aggregator_id,
-    effective_from_date_time
+    device_name,
+    pairing_status,
+    pairing_status_reason,
+    effective_to_date_time,
+    insert_by,
+    update_by
 )
 SELECT
-    (random() * 7)::int + 1 AS tenant_id,               -- random 1–7
-    (random() * 10000)::int AS entity_no,               -- random 0–9999
-    'device_' || (random() * 10000)::int AS device_name, -- random device_name
-    (random() * 5000)::int AS device_aggregator_id,     -- random 0–4999
-    timestamp '2020-01-01'
+    (random() * 7)::int + 1 AS tenant_id,                  -- random 1–7
+    timestamp '2020-01-01' 
+        + (random() * (EXTRACT(EPOCH FROM timestamp '2025-01-01')
+        - EXTRACT(EPOCH FROM timestamp '2020-01-01'))) * interval '1 second' 
+        AS effective_from_date_time,
+    (random() * 10000)::int AS entity_no,                  -- random 0–9999
+    (random() * 5000)::int AS device_aggregator_id,        -- random 0–4999
+    'device_' || (random() * 10000)::int AS device_name,   -- random device name
+    (ARRAY['Active','Inactive','Rejected'])[floor(random()*3)+1] AS pairing_status,  -- random status
+    'Reason_' || (random() * 100)::int AS pairing_status_reason, -- random reason
+    (timestamp '2026-01-01' 
         + (random() * (EXTRACT(EPOCH FROM timestamp '2028-12-31')
-                     - EXTRACT(EPOCH FROM timestamp '2020-01-01'))) * interval '1 second'
-        AS effective_from_date_time
+        - EXTRACT(EPOCH FROM timestamp '2026-01-01'))) * interval '1 second') 
+        AS effective_to_date_time,
+    'system' AS insert_by,                                 -- static user
+    'system' AS update_by
 FROM generate_series(1, 100);
+
 
 
