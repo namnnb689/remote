@@ -1,0 +1,185 @@
+# Setup Alerting For Azure Postgres Database
+
+**Author:** Tian Nguyen
+
+------------------------------------------------------------------------
+
+## Table of Contents
+
+1.  Context
+2.  Monitoring Metrics
+3.  Setup
+4.  Monitoring
+5.  Alerting
+
+------------------------------------------------------------------------
+
+## 1. Context
+
+The goal of this page is to describe how to set up monitoring and
+alerting for Azure Database for PostgreSQL (Single / Flexible Server) in
+a production-ready way --- including metrics collection, logs,
+dashboards, and alert rules.
+
+**Scope:** - Applies to staging and production environments. - Includes:
+system metrics, DB metrics, slow queries, error logs.
+
+**Assumption:** - Admin rights on subscription/resource group are
+available. - A Log Analytics workspace is already created or Grafana is
+connected to Azure Monitor.
+
+------------------------------------------------------------------------
+
+## 2. Monitoring Metrics
+
+### System (infrastructure)
+
+-   `cpu_percent` --- CPU usage
+-   `memory_percent` --- Memory usage (if available)
+-   `storage_used` / `storage_limit` --- Disk usage
+-   `iops` --- IO operations per second
+-   `network_bytes_in/out`
+
+### Database
+
+-   `active_connections` --- number of active connections
+-   `connection_failed` --- failed connections
+-   `deadlocks`
+-   `longest_transaction_time`
+
+### Query performance / trace
+
+-   Query Store / pg_stat_statements: top queries by duration, CPU, IO
+-   Slow query log (log_min_duration_statement)
+
+------------------------------------------------------------------------
+
+## 3. Setup
+
+### A. Enable Diagnostic Settings
+
+1.  Azure Portal → PostgreSQL server → **Monitoring → Diagnostic
+    settings**
+2.  Add diagnostic setting: send **Metrics** + **Logs** to **Log
+    Analytics** (and/or Storage, Event Hub if needed)
+3.  Enable categories: `PostgreSQLLogs`, `QueryStoreRuntimeStatistics`,
+    `QueryStoreWaitStatistics`.
+
+### B. Log Analytics Workspace
+
+-   Create a dedicated workspace for DB or use a shared workspace
+    (trade-offs on query flexibility vs. cost).
+
+### C. Query Store / pg_stat_statements
+
+-   If Flexible Server, enable Query Store.
+-   Enable the `pg_stat_statements` extension (if allowed) to collect
+    top queries.
+
+### D. CI process (Infrastructure as Code)
+
+-   Recommendation: use Terraform to create Log Analytics + Diagnostic
+    settings + Alerts (see example in Alerting section).
+
+------------------------------------------------------------------------
+
+## 4. Monitoring (Dashboards & Views)
+
+### A. Basic Dashboard (Azure Monitor Workbooks or Grafana)
+
+-   CPU / Memory / Storage overview (last 1h, 24h, 7d)
+-   Active connections vs max
+-   Top 10 slow queries (avg duration, executions)
+-   Errors / failed logins / deadlocks
+
+### B. Sample Kusto queries (Log Analytics)
+
+**Top slow queries (QueryStore):**
+
+    AzureDiagnostics
+    | where Category == "QueryStoreRuntimeStatistics"
+    | summarize avgDurationMs = avg(durationMs), count() by queryText
+    | order by avgDurationMs desc
+    | top 10 by avgDurationMs
+
+**Failed logins (PostgreSQLLogs):**
+
+    AzureDiagnostics
+    | where Category == "PostgreSQLLogs"
+    | where Message has "password authentication failed"
+    | summarize count() by bin(TimeGenerated, 1h), ClientIP
+
+------------------------------------------------------------------------
+
+## 5. Alerting
+
+### Suggested alert rules & thresholds (tune according to workload)
+
+1.  **CPU usage**: `cpu_percent > 80%` for 5 minutes → Severity 2
+2.  **Memory usage**: `memory_percent > 85%` for 5 minutes → Severity 2
+3.  **Storage usage**: `storage_used / storage_limit > 90%` → Severity 1
+4.  **Active connections**:
+    `active_connections > 90% of max_connections` → Severity 2
+5.  **Long running queries**: query duration \> 30s (or
+    business-specific) → Severity 3
+6.  **Deadlocks**: any deadlock occurrence → Severity 1
+7.  **Failed logins spike**: more than N failed logins in 10 minutes →
+    Security alert
+
+### Example: Terraform snippet (metric alert)
+
+``` hcl
+resource "azurerm_monitor_metric_alert" "postgres_cpu" {
+  name                = "postres-cpu-alert"
+  resource_group_name = var.rg
+  scopes              = [azurerm_postgresql_flexible_server.example.id]
+  description         = "CPU > 80%"
+  severity            = 2
+  frequency           = "PT1M"
+  window_size         = "PT5M"
+
+  criteria {
+    metric_namespace = "Microsoft.DBforPostgreSQL/flexibleServers"
+    metric_name      = "cpu_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = 80
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.ops.id
+  }
+}
+```
+
+### Action Groups
+
+-   Push to: PagerDuty / Opsgenie (via webhook), Teams/Slack, Email,
+    ITSM ticketing
+-   Include playbook link and runbook in alert body
+
+------------------------------------------------------------------------
+
+## Runbooks & Playbooks
+
+-   `High CPU`: check queries, check background jobs, scale up
+    vertically if sustained
+-   `Storage near limit`: increase storage, archive old data, enable
+    auto-grow
+-   `Connection saturation`: check connection pooling (pgbouncer),
+    investigate application leaks
+
+------------------------------------------------------------------------
+
+## Next steps / Deliverables
+
+-   [ ] Export this page to Confluence (wiki format) or Markdown
+-   [ ] Provide Terraform module templates for: Log Analytics +
+    Diagnostic + Alerts + Action Group
+-   [ ] Provide Grafana dashboard JSON for engineering visibility
+
+------------------------------------------------------------------------
+
+If needed, I can also provide: - **Confluence wiki markup** for direct
+paste, or - **Terraform module** sample for diagnostic + alerts, or -
+**Grafana dashboard JSON** ready for import.
