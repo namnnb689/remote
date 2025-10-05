@@ -4,10 +4,17 @@ with catalogue as (
         sku_name, 
         price/100 as discount
     from VITALITY_PARTNER.PARTNER_CATALOGUE_V
-    where partner_code in ('JAYAGROCERYMY','VHCM','EVERRISE')
-      and getdate() between effective_from and effective_to
+    where getdate() between effective_from and effective_to
       and sku_status = 'ACTIVE'
       and tenant_id = 9
+      and (
+          (partner_code = 'EVERRISE' and sku_name in (
+              'EVERRISEBASEBRZE','EVERRISEBASEGOLD','EVERRISEBASEPLAT','EVERRISEBASESLVR',
+              'EVERRISEVHCBRZE','EVERRISEVHCGOLD','EVERRISEVHCPLAT','EVERRISEVHCSLVR',
+              'EVERRISEVHRBRZE','EVERRISEVHRGOLD','EVERRISEVHRPLAT','EVERRISEVHRSLVR'
+          ))
+          or partner_code in ('JAYAGROCERYMY','VHCM')
+      )
 ),
 transactions_monthly as (
     select 
@@ -32,26 +39,19 @@ transactions_yesterday as (
 select
     eon.entity_other_no as AIA_MEMBER_ID,
     case when epc.eff_to < getdate() then 'I' else 'A' end as STATUS,
-    
     cat.discount as VITALITY_DISCOUNT_PERCENTAGE,
-    
     (400 - coalesce(tm.total_amt,0)) as REMAINING_LIMIT
-
 from fv_core.entity_policy_conn_hist_v epc
 join fv_core.entity_other_nos_v eon
     on eon.entity_no = epc.entity_no 
    and eon.no_type='AMN'
-
 left join transactions_monthly tm
     on tm.entity_num = epc.entity_no
-
 left join catalogue cat
     on cat.partner_code = tm.partner_code
-
 where epc.entity_role='PP'
   and epc.tenant_id=9
   and epc.eff_to >= dateadd(day,-365,getdate())
-  
   and exists (
       select 1 from transactions_yesterday ty
       where ty.entity_num = epc.entity_no
