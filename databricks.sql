@@ -15,8 +15,51 @@ PR8: Landing Zone Setup – VWAN + Log Analytics Workspace
 PR9: Terraform Workspace Variables Setup (TFC)
 PR10: Databricks Resource Creation
 PR11: Metastore & Baseline Configuration
-PR12: Databricks Cluster Provisioning
-PR13: Databricks ACLs & Security Controls
+### PR12: Databricks Cluster Provisioning
+
+- Provision Databricks clusters via the Terraform module `plt-tf-databricks-cluster` to ensure consistent and reproducible cluster configuration across all environments (DEV, SIT, PROD).
+- Configure cluster policies and enforce naming conventions to align with enterprise governance standards.
+- Define cluster parameters such as:
+  - **Node type**: Standard_DS3_v2 or higher
+  - **Auto-scaling**: Enabled with defined min and max worker nodes
+  - **Spark version**: Use the latest LTS-supported Databricks runtime
+  - **Termination timeout**: Set to 30 minutes of inactivity to optimize cost
+- Attach the clusters to the previously created **Unity Catalog metastore** and **schema**.
+- Apply tags and metadata for resource tracking and cost management.
+- Validate that clusters are provisioned successfully and can access:
+  - ADLS Gen2 storage via the linked Key Vault secrets
+  - The workspace and Unity Catalog metastore
+- Ensure clusters are deployed in compliance with **Pega DevOps** operational policies for environment segregation and RBAC.
+
+---
+
+### PR13: Databricks ACLs & Security Controls
+
+- Implement fine-grained **Access Control Lists (ACLs)** within Databricks for both users and groups.
+- Assign workspace-level permissions to key user groups:
+  - **ADMIN**: Full administrative access to workspace, clusters, jobs, and repos.
+  - **DEVOPS_ENGINEER**: Manage infrastructure components, clusters, and configurations.
+  - **DATA_ENGINEER**: Manage tables, jobs, and notebooks related to data pipelines.
+  - **DATA_SCIENTIST / DATA_ANALYST**: Read/write access to designated schemas and compute clusters.
+  - **SUPPORT_ENGINEER**: Read-only access for troubleshooting and monitoring.
+- Configure **Unity Catalog permissions** at the catalog, schema, and table levels:
+  - Catalog Owner: ADMIN
+  - Schema Owner: DATA_ENGINEER
+  - Data Access: Controlled by assigned groups via Terraform SCIM mappings.
+- Enforce **Key Vault–backed secret scopes** for credentials and sensitive values.
+- Apply **cluster-level ACLs** to restrict job execution and notebook access based on group role.
+- Validate that all users inherit permissions according to the group structure defined in PR11.
+- Establish monitoring hooks to ensure ACL integrity via Databricks REST API audit logs.
+
+---
+
+### ✅ Outcome
+
+After completing PR12 and PR13:
+- The Databricks infrastructure is ready with standardized cluster configurations.
+- Access controls and governance policies are enforced across all environments.
+- Security and compliance alignment is maintained with organizational DevOps and data governance frameworks.
+
 
 Reference: Terraform Cloud Variables & Repo Structure
 *** Folder Structure
